@@ -1,6 +1,23 @@
 # 验收与验证边界
 
-本地单元/浏览器测试使用受控的 Supabase 响应验证界面与状态机。数据库策略、SMTP、OAuth Server、跨浏览器真实 token 及线上 Cloudflare 响应必须在独立开发项目实测。下列清单是验收步骤，不表示已连接远程项目或已完成生产发布。
+本地单元/浏览器测试使用受控的 Supabase 响应验证界面与状态机。数据库策略、SMTP、OAuth Server、跨浏览器真实 token 及线上 Cloudflare 响应必须在真实项目实测。以下分别记录已执行检查和待验收步骤；配置成功不代表完整认证流程已经验收。
+
+## 远程项目配置与检查（2026-10-03）
+
+目标项目为 `hqsbxndtzyspkvoaxvid`（`water5-auth`），账号站为 `https://auth.water555.com`。
+
+| 项目 | 已确认结果 |
+| --- | --- |
+| 数据库迁移 | 已执行 `202610020001_accounts.sql`，远程迁移历史版本与仓库一致；创建 profiles、同步触发器、avatars bucket 和访问策略。 |
+| 认证设置 | Site URL 为 `https://auth.water555.com`；Redirect URLs 为 `https://auth.water555.com/auth/callback**`；开启邮箱注册、邮箱确认和双邮箱确认修改；密码最少 10 位，匿名登录关闭。 |
+| OAuth Server | 已启用；Authorization Path 为 `/oauth/consent`；动态客户端注册关闭。OIDC discovery 可读取，公开 JWKS 包含 ES256 密钥。尚未登记业务客户端或验收真实授权码流程。 |
+| 数据库权限 | RLS、表授权、触发器函数权限和头像 bucket 限制均已检查。空项目中完整执行 `permissions.sql` 并回滚，通过资料同步、匿名/跨用户隔离、禁止直接修改资料、头像本人操作与 OAuth 写入限制断言；确认无残留用户、资料或文件记录。 |
+| 线上前端 | `/login`、`/auth/callback`、`/oauth/consent` 均返回 200；部署产物包含正确的 Supabase 项目地址和正式 Site URL。 |
+| 邮件与 SMTP | 已接入 Resend：`smtp.resend.com:465`，当前发件人为 `吾水阁账号中心 <no-reply@mwp-mail.water555.com>`；四份中文模板及主题已上传并全文回读核对。按用户明确授权，Supabase 发信限额已调整为每小时 30 封并回读确认。 |
+| 发信域名变更 | 已切换到 `mwp-mail.water555.com`。公共 DNS 已解析出新 DKIM TXT，以及 `send.mwp-mail` CNAME 对应的 SPF 与退信 MX；用户确认 Resend 状态为 Verified。新域名实际发信请求已受理，Supabase 发件地址、当前 SMTP 密钥及本地配置已同步。旧域名与 DNS 尚未删除，由用户在确认收信后清理。账号站仍为 `https://auth.water555.com`。 |
+| 测试邮件 | 旧域名普通测试邮件和新域名“吾水阁新发信域名验证”邮件均已向用户指定地址提交，Resend HTTPS API 已受理；当前密钥无法查询投递状态，是否到达收件箱仍待收件人确认。本机直连 SMTP 的 TLS 握手失败，这些测试未经过 Supabase Auth，不能替代真实认证邮件验收。 |
+
+远程权限测试只写入事务内 fixture 元数据，未上传文件字节或触发认证邮件。为适配托管 Storage 的 SQL 删除保护，本次在传输的测试 SQL 的 `BEGIN` 后加入 `SET LOCAL storage.allow_delete_query = 'true'`，其作用随事务回滚结束；未永久修改 Storage 配置。真实 Storage HTTP 上传、注册验证、密码恢复、双邮箱确认修改和完整 OIDC 流程仍待后续验收。
 
 ## 本轮已执行的检查（2026-10-02）
 
