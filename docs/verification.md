@@ -1,0 +1,91 @@
+# 验收与验证边界
+
+本地单元/浏览器测试使用受控的 Supabase 响应验证界面与状态机。数据库策略、SMTP、OAuth Server、跨浏览器真实 token 及线上 Cloudflare 响应必须在独立开发项目实测。下列清单是验收步骤，不表示已连接远程项目或已完成生产发布。
+
+## 本轮已执行的检查（2026-10-02）
+
+| 检查 | 结果与边界 |
+| --- | --- |
+| TypeScript、ESLint、生产构建及 Wrangler dry run | 通过。仅校验构建/发布配置，没有发布远程 Worker。 |
+| Vitest 单元与组件回归 | 8 个测试文件、69 项全部通过，包含恢复会话、授权异步响应、头像失败补偿与安全路径。 |
+| Playwright 桌面与手机浏览器 | 58 项全部通过，使用真实 SDK 与受控 Supabase 响应；中文截图已检查。 |
+| 本地 Workers 深层路由与响应头 | 8 条路由均返回 200 与 SPA HTML；CSP、Referrer-Policy、X-Frame-Options 生效。未配置环境的生产构建可显示配置提示，无浏览器运行错误。 |
+| PostgreSQL 17 隔离执行迁移及 `permissions.sql` | 通过。auth/storage 使用最小模拟 schema；容器已清理。 |
+| 在额外宽泛 Storage permissive policy 下重跑权限断言 | 通过。头像 restrictive guard 仍拒绝匿名、他人和 OAuth 写入/删除。 |
+| 4 份邮件模板使用 Go `html/template` 编译、渲染 | 通过。3 种回调类型、token_hash、嵌套编码的 OAuth next 均完整往返，验证码模板正常渲染。 |
+| 真实 Supabase Auth/Storage/SMTP/OIDC 联调 | 尚未执行，需要开发项目参数、邮箱与临时 OAuth 客户端。 |
+| 生产 Cloudflare 域名发布及真实响应 | 尚未执行，需要目标 Cloudflare 账号与域名配置。 |
+
+自动化结果仅适用于本地构建、受控响应与隔离数据库；不能替代下方真实服务验收。浏览器依赖和中文字体按开发机环境安装，不属于生产前端依赖。
+
+## 自动化
+
+```sh
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test
+pnpm exec playwright install chromium
+pnpm test:e2e
+pnpm deploy:check
+```
+
+单元/组件测试应覆盖站内续接与恶意跳转拦截、重复邮件验证去重、恢复状态和过期会话、邮箱双确认中间状态、授权同意/拒绝/已有授权、撤销失败和资料同步失败。浏览器测试应覆盖手机与桌面、可用的键盘焦点与表单标签、深层路由刷新及会话恢复。请以实际测试报告为准；mock 成功不能证明远程服务配置正确。
+
+## 数据库权限与同步
+
+可先用 Docker 中的 PostgreSQL 17 执行隔离的 SQL/RLS 校验（需要 Python 3 和本地 Docker 权限）：
+
+```sh
+docker pull postgres:17.6-alpine3.22
+pnpm test:db
+```
+
+脚本只使用指定本地镜像，运行一个无网络、无主机端口和临时存储的容器，结束后删除。它模拟迁移所需的 auth/storage 表和函数，并额外验证宽泛的既有 Storage permissive policy 无法绕过头像写限制；这能验证 SQL 与 RLS 逻辑，但不是完整 Supabase 集成测试。
+
+再对一次性开发数据库应用迁移，然后用项目数据库连接在受控终端执行：
+
+```sh
+psql "$DEV_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/permissions.sql
+```
+
+`DEV_DATABASE_URL` 是数据库管理连接，只用于人工验收，不是前端环境变量，不提交到 Git。脚本在事务中创建两名固定测试用户并全部回滚；须使用无同名 fixture 的一次性开发数据库。它断言注册/metadata 同步、失败时 Auth 更新回滚、匿名和跨用户资料隔离、拒绝前端直接写资料、拒绝跨用户头像写入/移动/删除、拒绝 OAuth token 写删头像，以及本人可写删头像。SQL 通过角色和 JWT claims 模拟 RLS，不会上传真实文件字节，不能替代 Storage HTTP 验收。
+
+另外通过浏览器/Storage API 检查：
+
+- JPEG、PNG、WebP 在 2 MiB 以内可上传；超限或其他 MIME 在前端和服务端拒绝。直接绕过前端调用 Storage API 再测一次服务端限制。
+- 用用户甲 session 向用户乙目录上传、替换与删除应失败；用 OAuth access token 写自己目录也应失败。
+- 匿名无法读取私有 `profiles`；用户甲读取用户乙 profile 得到空结果/拒绝，不能泄漏昵称资料行。
+- 公开头像 URL 在未登录浏览器可读取；随机名替换、默认头像恢复及旧对象删除结果与页面提示一致。
+- 人工让 metadata 违反迁移约束，确认 Auth update 报错、旧资料仍在、页面不显示保存成功。恢复正常约束后重试，不要保留验收故障。
+
+迁移使用 SECURITY DEFINER 触发器，检查函数 owner 仍为管理员、`search_path` 固定，anon/authenticated 没有 EXECUTE 和 profiles 写权限。确认未来迁移没有引入宽泛 Storage 写策略、profile 写策略或信任 user_metadata 的业务授权。
+
+## 真实账号与邮件
+
+使用开发 SMTP、两枚真实可收信的测试邮箱，以及两个独立浏览器（或隔离 profile）。
+
+1. 注册邮箱、密码、昵称；未确认前不能登录；检查中文邮件主题和链接。注册失败/邮件速率限制应显示可操作错误，重发确认邮件后可验证。
+2. 在另一个浏览器打开注册邮件，通过 `token_hash` 确认并获取会话；地址栏移除凭据。刷新、后退、重复点同一链接不触发重复消费造成假成功；过期链接有重发入口。
+3. 从 `/oauth/consent?authorization_id=有效请求` 开始注册、登录或恢复，回调后续接原授权页。外部 URL、双斜杠、编码后的恶意路径不能作为账号流程的续接目标。
+4. 恢复邮件在另一浏览器打开后进入重设密码，普通登录或手写 `/reset-password` 不足以获得恢复权限。恢复过程中 Auth 事件不能提前跳回账号页；刷新后状态按当前实现与绑定会话一致，退出/换账号/失效后不再可用。成功修改后新密码可登录、旧密码不能登录。
+5. 修改邮箱：先点旧邮箱再点新邮箱，反过来再做一遍。第一次提示仍待另一邮箱确认；两次完成后刷新用户信息并以新邮箱登录。无效、已消费或过期链接可回到对应重发流程。
+6. 在 Secure password change 开启的项目中，使用超过重新验证窗口的会话改密码，确认能请求并提交 Reauthentication 邮件验证码；错误、过期 nonce 均不会显示修改成功。
+7. 改昵称后 Auth metadata 三字段、profiles 与 UI 一致；上传、替换、恢复头像后双字段与 OIDC 展示资料一致。网络失败、profile trigger 失败与对象删除失败分别检查反馈。
+8. 新开标签/刷新恢复会话，等待自动续期；模拟 session 失效或服务端撤销，账号设置与授权页应回到可重新登录状态。退出当前账号中心后，页面不再展示原账号私有数据。
+
+## 授权与临时客户端
+
+在开发项目临时登记一个自有测试客户端，使用成熟 OIDC 测试工具或既有业务站的测试环境，不新增演示站代码。只登记确切测试回调 URL，测试后删除客户端及测试授权。
+
+- 通过 discovery + 授权码 + S256 PKCE 发起 `openid email profile` 请求。未登录跳登录并保留 authorization_id；已有中心会话直接展示授权。
+- 校验应用名称、当前邮箱和 scope 展示。同意、拒绝、已有授权自动返回都只使用 Supabase 响应的 redirect_url；参数缺失、过期及请求失败有明确状态。
+- 回到客户端校验 state、nonce、签名、issuer、audience 和有效期；使用 `(issuer, sub)` 映射测试账号。核实 ID Token/UserInfo 的昵称、头像以及 `sub` 一致。
+- 在已授权应用页看到该 grant，取消撤销对话框不调用服务，确认后撤销成功；模拟失败后项目仍保留且错误可见。
+- 撤销后验证重新授权、refresh token 与尚未过期 access token 的真实行为；验证业务站既有本地会话不会凭空清除，并按其会话策略处理。
+- 切换账号、授权过程中 session 失效、客户端回调报错都不会复用前一个用户的授权信息。
+
+## 布局与线上资源
+
+在桌面和窄屏手机测试全部表单、长邮箱/应用名、空应用列表、错误/成功反馈和加载态。只用键盘完成登录、账号菜单、上传按钮、授权和撤销确认，检查标签、焦点可见性及屏幕阅读器提示；检查 200% 缩放无关键内容截断。
+
+Cloudflare 部署后直接打开并刷新 `/login`、`/register`、`/forgot-password`、`/auth/callback`、`/reset-password`、`/account`、`/account/apps` 和 `/oauth/consent`。检查 SPA 回退、静态资源 MIME、CSP/Referrer-Policy 等实际响应头与 HTTPS 域名。无配置构建应显示配置提示；生产构建检查不含服务端密钥。保存测试环境、构建版本、测试日期和实际结果，再决定生产发布。
