@@ -10,7 +10,8 @@
 | --- | --- |
 | 数据库迁移 | 已执行 `202610020001_accounts.sql`，远程迁移历史版本与仓库一致；创建 profiles、同步触发器、avatars bucket 和访问策略。 |
 | 认证设置 | Site URL 为 `https://auth.water555.com`；Redirect URLs 为 `https://auth.water555.com/auth/callback**`；开启邮箱注册、邮箱确认和双邮箱确认修改；密码最少 10 位，匿名登录关闭。 |
-| OAuth Server | 已启用；Authorization Path 为 `/oauth/consent`；动态客户端注册关闭。OIDC discovery 可读取，公开 JWKS 包含 ES256 密钥。尚未登记业务客户端或验收真实授权码流程。 |
+| OAuth Server | 已启用；Authorization Path 为 `/oauth/consent`；动态客户端注册关闭。OIDC discovery 可读取，公开 JWKS 包含 ES256 密钥。完整用户授权与换码流程仍待联调。 |
+| 授权网站 | 已确认 `Codex Gateway` 为手工登记的 confidential 客户端，网站地址已补全为 `https://codex.water555.com`，精确回调为 `https://codex.water555.com/auth/oidc/callback`，认证方式为 `client_secret_basic`。`openid email` + S256 PKCE 请求成功跳转至账号站授权页，未登记回调路径返回 HTTP 400。公开接入参数见 [已登记授权网站](oidc-integration.md#已登记授权网站)。 |
 | 数据库权限 | RLS、表授权、触发器函数权限和头像 bucket 限制均已检查。空项目中完整执行 `permissions.sql` 并回滚，通过资料同步、匿名/跨用户隔离、禁止直接修改资料、头像本人操作与 OAuth 写入限制断言；确认无残留用户、资料或文件记录。 |
 | 线上前端 | `/login`、`/auth/callback`、`/oauth/consent` 均返回 200；部署产物包含正确的 Supabase 项目地址和正式 Site URL。 |
 | 邮件与 SMTP | 已接入 Resend：`smtp.resend.com:465`，当前发件人为 `吾水阁账号中心 <no-reply@mwp-mail.water555.com>`；四份中文模板及主题已上传并全文回读核对。按用户明确授权，Supabase 发信限额已调整为每小时 30 封并回读确认。 |

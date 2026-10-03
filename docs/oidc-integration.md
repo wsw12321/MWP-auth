@@ -1,6 +1,23 @@
 # 业务站 OIDC 接入约定
 
-账号站完成身份验证与用户授权，Supabase OAuth Server 负责授权码、令牌和 UserInfo。业务站继续拥有自己的用户主键、权限、审批、账单及会话。本次交付不修改网关、不提供演示站；联调使用临时登记的测试客户端，验收后删除即可。
+账号站完成身份验证与用户授权，Supabase OAuth Server 负责授权码、令牌和 UserInfo。业务站继续拥有自己的用户主键、权限、审批、账单及会话。生产业务站的登记信息见下表；联调使用独立的测试客户端，验收后删除测试客户端即可。
+
+## 已登记授权网站
+
+| 配置 | Codex 网关（生产） |
+| --- | --- |
+| 网站地址 | `https://codex.water555.com` |
+| 客户端名称 | `Codex Gateway` |
+| Client ID | `3e9c79d8-3c51-4fee-a986-7a2d5fed62dc` |
+| 客户端类型 | `confidential`，手工登记 |
+| Token endpoint 认证方式 | `client_secret_basic` |
+| 精确 Redirect URI | `https://codex.water555.com/auth/oidc/callback` |
+| Issuer | `https://hqsbxndtzyspkvoaxvid.supabase.co/auth/v1` |
+| 登录申请范围 | `openid email`，使用 S256 PKCE |
+
+2026-10-03 已回读确认现有客户端及精确回调地址，并补全客户端网站地址。授权请求可跳转到账号站 `/oauth/consent`；未登记的回调路径被拒绝。完整的用户授权、换码及网关登录仍待联调。
+
+Client ID 是公开接入参数；client secret 仅由网关服务端保管，不写入本仓库或前端构建配置。登记网站后，用户完成同意授权才会在 `/account/apps` 的“已授权应用”中看到该应用。
 
 ## 客户端与发现文档
 
