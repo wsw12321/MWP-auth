@@ -7,7 +7,7 @@ export function safeNext(value: string | null | undefined): string {
   try {
     const url = new URL(value, base)
     if (url.origin !== base || url.hash) return '/account'
-    if (url.pathname === '/account' || url.pathname === '/account/apps') return url.pathname
+    if (url.pathname === '/account' || url.pathname === '/account/apps' || url.pathname === '/sites') return url.pathname
     if (url.pathname === '/oauth/consent') {
       const ids = url.searchParams.getAll('authorization_id')
       if (ids.length === 1 && /^[a-zA-Z0-9_-]{1,200}$/.test(ids[0])) {

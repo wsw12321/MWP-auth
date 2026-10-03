@@ -26,6 +26,7 @@ export type MockOptions = {
   profileSyncMismatch?: boolean
   requireReauthentication?: boolean
   unconfirmedLogin?: boolean
+  grantClient?: typeof testClient
 }
 
 /** Exercise the real browser SDK and UI while keeping tests independent of live accounts. */
@@ -33,7 +34,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}) {
   const session = makeSession()
   const requests: CapturedRequest[] = []
   let account = { ...user, user_metadata: { ...user.user_metadata } }
-  let grants = [{ client: testClient, scopes: ['openid', 'profile'], granted_at: '2026-01-01T00:00:00.000Z' }]
+  let grants = [{ client: options.grantClient || testClient, scopes: ['openid', 'profile'], granted_at: '2026-01-01T00:00:00.000Z' }]
   if (options.signedIn) {
     await page.addInitScript(({ savedSession }) => {
       if (!localStorage.getItem('water5-test-initialized')) {

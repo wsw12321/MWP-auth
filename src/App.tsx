@@ -11,6 +11,7 @@ import Callback from './pages/Callback'
 import ResetPassword from './pages/ResetPassword'
 const Account = lazy(() => import('./pages/Account'))
 const Apps = lazy(() => import('./pages/Apps'))
+const Sites = lazy(() => import('./pages/Sites'))
 const Consent = lazy(() => import('./pages/Consent'))
 
 function SignedOut({ children }: { children: ReactNode }) {
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/account" element={<Protected><Account /></Protected>} />
         <Route path="/account/apps" element={<Protected><Apps /></Protected>} />
+        <Route path="/sites" element={<Sites />} />
         <Route path="/oauth/consent" element={<Protected><Consent /></Protected>} />
         <Route path="*" element={<AuthCard title="页面未找到" intro="这条水路还未开通。"><Link className="button" to="/">返回账号中心</Link></AuthCard>} />
       </Routes></Suspense>}</Layout>

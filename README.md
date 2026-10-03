@@ -43,7 +43,8 @@ pnpm dev
 | `/auth/callback` | 校验邮件 `token_hash`，移除地址栏凭据 |
 | `/reset-password` | 仅验证过恢复邮件的会话可设置新密码 |
 | `/account` | 昵称、头像、邮箱、密码与中心退出 |
-| `/account/apps` | 查询、撤销已授权应用 |
+| `/account/apps` | 查询、撤销已授权应用，点击应用发起统一登录 |
+| `/sites` | 公开浏览已接入网站并前往网站 |
 | `/oauth/consent` | 展示并处理 Supabase OAuth 授权请求 |
 
 Supabase Auth 是账号及展示资料的写入来源，数据库触发器把选定 metadata 字段同步至只读 `profiles`；头像保存在公开的 `avatars` bucket。业务角色、余额及各网站的会话仍属于业务站。

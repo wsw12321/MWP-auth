@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { callbackNext, safeNext } from '../../src/lib/navigation'
 
 describe('账号流程续接', () => {
-  it.each(['/account', '/account/apps', '/oauth/consent?authorization_id=auth_123'])('保留允许的站内地址 %s', (destination) => {
+  it.each(['/account', '/account/apps', '/sites', '/oauth/consent?authorization_id=auth_123'])('保留允许的站内地址 %s', (destination) => {
     expect(safeNext(destination)).toBe(destination)
   })
 
