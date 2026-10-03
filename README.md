@@ -31,11 +31,11 @@ pnpm dev
 | `pnpm build` | 构建至 `dist/` |
 | `pnpm preview` | 仅预览静态构建产物，API 代理请使用 Wrangler dev |
 | `pnpm deploy:check` | 构建并校验 Wrangler 发布配置 |
-| `pnpm deploy` | 构建并发布 Cloudflare Worker |
+| `pnpm run deploy` | 构建并发布 Cloudflare Worker |
 
 首次运行浏览器测试需要 `pnpm exec playwright install chromium`。Linux 缺少系统库时由开发机管理员安装 Playwright 所需依赖。
 
-生产采用 Git 自动部署：推送 `main` 到 `wsw12321/MWP-auth` 后由 Cloudflare Workers Builds 构建并发布。发布前运行检查、单元测试、浏览器测试和 dry run；推送后核对构建、部署版本及线上同源 API。`pnpm deploy` 保留为手动发布命令，常规发布不使用它。
+生产采用 Git 自动部署：推送 `main` 到 `wsw12321/MWP-auth` 后由 Cloudflare Workers Builds 构建并发布。发布前运行检查、单元测试、浏览器测试和 dry run；推送后核对构建、部署版本及线上同源 API。`pnpm run deploy` 保留为手动发布命令，常规发布不使用它；必须写出 `run`，避免调用 pnpm 自带的同名工作区命令。
 
 ## 页面与数据
 
