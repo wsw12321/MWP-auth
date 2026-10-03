@@ -14,7 +14,7 @@ export const testAuthorization = {
   user: { id: user.id, email: user.email },
   scope: 'openid profile email',
 }
-export type CapturedRequest = { path: string; method: string; body: Record<string, unknown> | null }
+export type CapturedRequest = { url: string; path: string; method: string; body: Record<string, unknown> | null }
 export type MockOptions = {
   signedIn?: boolean
   alreadyAuthorized?: boolean
@@ -26,14 +26,17 @@ export type MockOptions = {
   profileSyncMismatch?: boolean
   requireReauthentication?: boolean
   unconfirmedLogin?: boolean
+  legacyAvatar?: boolean
+  expiredStoredSession?: boolean
   grantClient?: typeof testClient
 }
 
 /** Exercise the real browser SDK and UI while keeping tests independent of live accounts. */
 export async function mockSupabase(page: Page, options: MockOptions = {}) {
-  const session = makeSession()
   const requests: CapturedRequest[] = []
   let account = { ...user, user_metadata: { ...user.user_metadata } }
+  if (options.legacyAvatar) account.user_metadata.avatar_url = `https://test-project.supabase.co/storage/v1/object/public/avatars/${user.id}/old.png`
+  const session = makeSession(undefined, account)
   let grants = [{ client: options.grantClient || testClient, scopes: ['openid', 'profile'], granted_at: '2026-01-01T00:00:00.000Z' }]
   if (options.signedIn) {
     await page.addInitScript(({ savedSession }) => {
@@ -41,7 +44,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}) {
         localStorage.setItem('sb-test-project-auth-token', JSON.stringify(savedSession))
         localStorage.setItem('water5-test-initialized', 'true')
       }
-    }, { savedSession: session })
+    }, { savedSession: options.expiredStoredSession ? makeSession(undefined, account, Math.floor(Date.now() / 1000) - 60) : session })
   }
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({
     status,
@@ -49,14 +52,16 @@ export async function mockSupabase(page: Page, options: MockOptions = {}) {
     headers: { 'access-control-allow-origin': '*', 'x-supabase-api-version': '2024-01-01', 'access-control-expose-headers': 'X-Supabase-Api-Version' },
     body: JSON.stringify(body),
   })
-  await page.route('https://test-project.supabase.co/**', async route => {
+  // Any regression to a direct browser request must fail even when overseas.
+  await page.route('https://test-project.supabase.co/**', route => route.abort('blockedbyclient'))
+  await page.route('http://127.0.0.1:4173/supabase/**', async route => {
     const request = route.request()
     const url = new URL(request.url())
-    const path = url.pathname
+    const path = url.pathname.slice('/supabase'.length)
     const method = request.method()
     let body: Record<string, unknown> | null = null
     try { body = request.postDataJSON() } catch { /* GET and DELETE do not carry JSON. */ }
-    requests.push({ path, method, body })
+    requests.push({ url: url.href, path, method, body })
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: {
       'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*',
     } })

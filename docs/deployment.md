@@ -1,6 +1,6 @@
 # 部署与 Supabase 配置
 
-本仓库发布一个静态 SPA。Supabase 提供 Auth、OAuth Server、Postgres 和 Storage；浏览器只使用 publishable key，首版无需 service-role key。以下步骤需要项目拥有者在自己的 Supabase 与 Cloudflare 账号中完成，仓库不会自动创建远程项目或发送邮件。
+本仓库发布一个 SPA 和同源 API Worker。Supabase 提供 Auth、OAuth Server、Postgres 和 Storage；浏览器只使用 publishable key 和用户 JWT，Worker 将请求转发至固定项目，不持有 service-role key。以下步骤需要项目拥有者在自己的 Supabase 与 Cloudflare 账号中完成，仓库不会自动创建远程项目或发送邮件。
 
 ## 1. 开发与生产隔离
 
@@ -13,6 +13,8 @@ VITE_SITE_URL=http://localhost:5173
 ```
 
 复制 `.env.example` 为 `.env.local` 后填写开发配置。生产 `VITE_SITE_URL` 使用实际 HTTPS 账号站 origin，例如 `https://accounts.example.com`，不要附加业务路径或尾部斜杠。这三个变量属于 **Vite 构建时公开配置**，会进入 JS 产物；设置 Worker 运行时 secrets 不能替代重新构建。禁止把数据库密码、OAuth client secret、secret/service-role key 放入任何 `VITE_` 变量。
+
+`VITE_SUPABASE_URL` 保留真实项目地址；Worker 的 `SUPABASE_ORIGIN` 必须指向同一项目。生产构建默认将 SDK API 地址改为当前页面 origin 下的 `/supabase`，会话存储键仍根据真实项目生成，已有登录和 PKCE 状态可继续使用。可选 `VITE_SUPABASE_PROXY` 只接受 `true` 或 `false`；Vite 开发默认直连，生产默认代理。预览环境须同时使用对应的前端项目配置和 Worker 上游配置，不能只改其中一处。
 
 ## 2. 数据库与头像
 
@@ -78,16 +80,22 @@ VITE_SITE_URL=http://localhost:5173
 
 官方依据：[OAuth Server 配置](https://supabase.com/docs/guides/auth/oauth-server/getting-started)、[OAuth token 与 RLS](https://supabase.com/docs/guides/auth/oauth-server/token-security)。Supabase OAuth Server 仍应按官方当前发布阶段评估，上线前完成 [真实验收](verification.md)，不能以 mock 测试代替。
 
-## 5. Cloudflare Workers 静态部署
+## 5. Cloudflare Workers 与 Git 自动部署
 
-仓库 `wrangler.jsonc` 发布 `dist/`，`assets.not_found_handling` 使用 `single-page-application`，保证 `/auth/callback`、`/oauth/consent` 等路由直接打开与刷新都返回 SPA。`public/_headers` 随构建复制到 `dist/_headers`，为静态响应设置 CSP、Referrer-Policy、禁止嵌入及其他安全响应头。若未来添加 Worker 脚本处理请求，须核实脚本响应同样携带所需头部。
+仓库 `wrangler.jsonc` 发布 `worker/index.ts` 和 `dist/`，通过 `assets.run_worker_first` 将 `/supabase`、`/supabase/*` 优先交给 Worker。其他页面保持 `single-page-application` 回退，保证 `/auth/callback`、`/oauth/consent` 等路由直接打开与刷新都返回 SPA。`public/_headers` 只作用于静态响应，API 响应的安全头与缓存策略由 Worker 显式设置。
+
+Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹配的 API 路径返回 JSON 404。保留 API 方法、查询参数、请求体和认证头；不转发本站 Cookie 或客户端提供的转发/IP 头，不记录请求体、认证凭据或完整 URL。关闭自动 invocation logs，避免 API 查询参数进入调用日志。所有代理响应禁用浏览器与 CDN 缓存。上游重定向不由 Worker 跟随，仅将同项目服务路径改为同源代理地址，业务站回调原样交给浏览器。Supabase 仍执行认证、RLS 和速率限制；没有通过高权限凭据注入终端 IP，部署后需关注上游按代理出口 IP 计数的限流情况。
+
+已有项目公开头像在展示时转换为同源地址，替换/清理同时识别旧直连 URL 与新代理 URL；不修改已有数据库数据。第三方头像 URL 不自动代理。Realtime 和 Edge Functions 不属于当前页面使用的接口，未开放对应代理。
 
 1. 安装锁定依赖：`pnpm install --frozen-lockfile`。
-2. 在构建环境设置三个生产 `VITE_` 变量；预览分支只使用开发项目。
+2. 在 Cloudflare Workers Builds 构建环境设置三个生产 `VITE_` 变量，确认 `VITE_SUPABASE_URL` 与仓库 `SUPABASE_ORIGIN` 指向同一项目。生产默认代理，无需新增构建变量；预览分支只使用开发项目。
 3. 执行 `pnpm check`、`pnpm test`、`pnpm test:e2e`。
 4. 执行 `pnpm deploy:check`，查看 Wrangler dry run 结果及 `dist/`。dry run 只校验构建/发布配置，不会验证 Supabase、DNS、SMTP 或真实授权。
-5. 用自己的 Cloudflare 账号执行 `pnpm exec wrangler login`，确认 `wrangler.jsonc` 的 Worker name 与目标账号，再执行 `pnpm deploy`。CI 可使用有目标 Worker 发布权限的 Cloudflare API token，存入 CI secrets。
+5. 当前生产仓库为 `wsw12321/MWP-auth`，生产分支为 `main`。检查和审查通过后提交并推送该分支，由已有 Cloudflare Workers Builds Git 集成完成构建与发布。构建/发布命令必须运行 `pnpm build` 和 Wrangler deploy（例如构建 `pnpm build`，部署 `pnpm exec wrangler deploy`；或由 `pnpm deploy` 合并执行）。常规发布不在本机执行 `pnpm deploy`。推送后确认对应 commit 的构建成功并成为活动部署。
 6. 在 Cloudflare 为该 Worker 绑定正式域名，重新检查 `VITE_SITE_URL`、Supabase Site URL、Auth Redirect URLs 三者一致。
-7. 在实际 HTTPS 域名检查深层链接状态码、响应头、真实邮件、移动端和 OAuth 全流程。CSP 若使用自定义 Supabase 域名，需要同步收窄/调整允许的连接域，不要直接改为无限制脚本策略。
+7. 在实际 HTTPS 域名检查深层链接与 API 分流、认证配置/健康接口、响应头和缓存策略。关闭代理软件后检查登录、注册、邮件确认、会话刷新、资料和头像；Network 中账号 API 应走 `/supabase/*`。只读健康检查不能代替实际大陆网络验收。
+
+本地验证 Worker 使用 `pnpm build` 后运行 `pnpm exec wrangler dev`；仅运行 Vite preview 不包含 API。浏览器回归测试强制走同源路径并阻断原 Supabase 域名，Worker 单测另行校验转发边界。需要回退时恢复之前的 Git 版本并经同一构建流程发布；将 `VITE_SUPABASE_PROXY=false` 后重新构建也可恢复直连，但会重新受到大陆网络直连条件限制。
 
 官方依据：[Workers SPA 回退](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/)、[静态资源响应头](https://developers.cloudflare.com/workers/static-assets/headers/)。

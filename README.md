@@ -1,6 +1,6 @@
 # 吾水阁账号站
 
-独立的中文账号中心，使用 React、Vite、TypeScript 和 Supabase，部署到 Cloudflare Workers 静态资源托管。提供邮箱注册与验证、登录、密码恢复、账号资料与头像设置、邮箱与密码修改、OAuth 授权及已授权应用管理。
+独立的中文账号中心，使用 React、Vite、TypeScript 和 Supabase，部署到 Cloudflare Workers。Worker 托管静态页面，并通过同源 `/supabase/*` 转发认证、资料和头像请求，避免浏览器直接连接 Supabase 域名。提供邮箱注册与验证、登录、密码恢复、账号资料与头像设置、邮箱与密码修改、OAuth 授权及已授权应用管理。
 
 首版不包含演示站、网关改造、社区、等级、会员、第三方登录或 Passkey。品牌背景见 [吾水阁账号体系](吾水阁账号体系.md)。
 
@@ -17,6 +17,8 @@ pnpm dev
 
 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_SITE_URL` 都会进入浏览器构建产物。不要填写 secret key 或 service-role key。缺少配置时页面会显示配置提示。
 
+`VITE_SUPABASE_URL` 始终填写真实 Supabase 项目地址，并与 `wrangler.jsonc` 的 `SUPABASE_ORIGIN` 一致。生产构建默认走同源代理，Vite 开发默认直连；可用 `VITE_SUPABASE_PROXY=true|false` 显式选择。代理不会改变原项目的本地会话存储键。验证完整生产路由请运行 `pnpm build` 后执行 `pnpm exec wrangler dev`；`vite preview` 仅提供静态页面，不执行 Worker。
+
 先按 [部署与 Supabase 配置](docs/deployment.md) 执行数据库迁移、设置邮件模板和回调地址；只启动前端不能完成真实认证。生产配置更改后需要重新构建部署。
 
 | 命令 | 用途 |
@@ -27,11 +29,13 @@ pnpm dev
 | `pnpm test:e2e` | Playwright 浏览器测试 |
 | `pnpm test:db` | 隔离 PostgreSQL 迁移与权限断言（需 Python 3、Docker 和指定本地镜像） |
 | `pnpm build` | 构建至 `dist/` |
-| `pnpm preview` | 预览构建产物 |
+| `pnpm preview` | 仅预览静态构建产物，API 代理请使用 Wrangler dev |
 | `pnpm deploy:check` | 构建并校验 Wrangler 发布配置 |
 | `pnpm deploy` | 构建并发布 Cloudflare Worker |
 
 首次运行浏览器测试需要 `pnpm exec playwright install chromium`。Linux 缺少系统库时由开发机管理员安装 Playwright 所需依赖。
+
+生产采用 Git 自动部署：推送 `main` 到 `wsw12321/MWP-auth` 后由 Cloudflare Workers Builds 构建并发布。发布前运行检查、单元测试、浏览器测试和 dry run；推送后核对构建、部署版本及线上同源 API。`pnpm deploy` 保留为手动发布命令，常规发布不使用它。
 
 ## 页面与数据
 

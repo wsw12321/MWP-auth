@@ -37,6 +37,8 @@ Client ID 是公开接入参数；client secret 仅由网关服务端保管，�
 
 发行者预期为 `https://PROJECT_REF.supabase.co/auth/v1`，从 `https://PROJECT_REF.supabase.co/auth/v1/.well-known/openid-configuration` 获取 discovery。若项目使用自定义 Auth 域名，依据实际 discovery 确认并固定 issuer，不根据未验证的用户输入选择发行者。通过 discovery 读取 authorization endpoint、token endpoint、userinfo endpoint 和 JWKS URI，不在业务代码猜测接口。
 
+账号站生产 API 通过 `https://auth.water555.com/supabase` 转发。此转发不改变 JWT `iss`，也不改写 discovery JSON。面向大陆浏览器的业务站需在可信客户端配置中将 **authorization endpoint** 显式覆盖为 `https://auth.water555.com/supabase/auth/v1/oauth/authorize`，保留原 issuer 和签名验证。服务端 discovery、换码、UserInfo 和 JWKS 可继续直连其可达的 Supabase 地址。只更新账号站不会改变业务站首次浏览器授权跳转；网关需要另行适配、启用并验收，本仓库发布不会自动开启网关 OIDC。
+
 ## 授权码与 PKCE
 
 1. 业务站为本次登录生成不可预测的 `state`、`nonce` 与 PKCE `code_verifier`，保存到短期、一次性登录事务。使用 S256 计算 `code_challenge`。后端会话 Cookie 使用 Secure、HttpOnly 和合适的 SameSite。

@@ -1,9 +1,11 @@
 import type { User } from '@supabase/supabase-js'
+import { supabaseApiUrl, supabaseUrl } from './config'
 import { getSupabase } from './supabase'
 
 export type Profile = { id: string; display_name: string; avatar_url: string | null; updated_at: string }
 const bucketName = 'avatars'
 const maxAvatarBytes = 2 * 1024 * 1024
+const publicAvatarPath = `/storage/v1/object/public/${bucketName}/`
 
 export async function requireCurrentUser(userId: string): Promise<User> {
   const { data, error } = await getSupabase().auth.getUser()
@@ -38,7 +40,21 @@ export async function saveNickname(userId: string, value: string): Promise<Profi
 
 export function safeAvatarUrl(value: string | null | undefined): string | undefined {
   if (!value) return undefined
-  try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url.href : undefined } catch { return undefined }
+  try {
+    const url = new URL(value)
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return undefined
+    if (supabaseUrl && supabaseApiUrl !== supabaseUrl) {
+      const originalBase = new URL(`${supabaseUrl}${publicAvatarPath}`)
+      if (url.origin === originalBase.origin && url.pathname.startsWith(originalBase.pathname)) {
+        const proxyBase = new URL(`${supabaseApiUrl}${publicAvatarPath}`)
+        proxyBase.pathname += url.pathname.slice(originalBase.pathname.length)
+        proxyBase.search = url.search
+        proxyBase.hash = url.hash
+        return proxyBase.href
+      }
+    }
+    return url.href
+  } catch { return undefined }
 }
 
 export async function validateAvatar(file: File): Promise<'jpg' | 'png' | 'webp'> {
@@ -58,9 +74,14 @@ export async function validateAvatar(file: File): Promise<'jpg' | 'png' | 'webp'
 export function ownedAvatarPath(userId: string, value: string | null): string | null {
   if (!value) return null
   try {
-    const base = new URL(getSupabase().storage.from(bucketName).getPublicUrl(`${userId}/`).data.publicUrl)
     const url = new URL(value)
-    if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname) || url.search || url.hash) return null
+    if (url.username || url.password || url.search || url.hash) return null
+    const bases = [
+      new URL(getSupabase().storage.from(bucketName).getPublicUrl(`${userId}/`).data.publicUrl),
+      new URL(`${supabaseUrl}${publicAvatarPath}${userId}/`),
+    ]
+    const base = bases.find(candidate => url.origin === candidate.origin && url.pathname.startsWith(candidate.pathname))
+    if (!base) return null
     const filename = decodeURIComponent(url.pathname.slice(base.pathname.length))
     if (!/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(filename)) return null
     return `${userId}/${filename}`

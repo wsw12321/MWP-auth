@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-import { configError, publishableKey, supabaseUrl } from './config'
+import { configError, publishableKey, supabaseApiUrl, supabaseStorageKey } from './config'
 
-export const supabase = configError ? null : createClient(supabaseUrl, publishableKey, {
+export const supabase = configError ? null : createClient(supabaseApiUrl, publishableKey, {
   auth: {
+    // Keep existing sessions and PKCE verifiers when the API moves to our origin.
+    storageKey: supabaseStorageKey,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,

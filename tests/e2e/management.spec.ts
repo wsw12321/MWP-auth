@@ -6,6 +6,17 @@ const avatar = {
   buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=', 'base64'),
 }
 
+test('旧 Supabase 头像通过同源地址显示且替换后能清理旧对象', async ({ page }) => {
+  const { requests, session } = await mockSupabase(page, { signedIn: true, legacyAvatar: true })
+  await page.goto('/account')
+  await expect(page.getByAltText('当前头像')).toHaveAttribute('src', `http://127.0.0.1:4173/supabase/storage/v1/object/public/avatars/${session.user.id}/old.png`)
+  await expect.poll(() => requests.some(request => request.path.endsWith('/old.png'))).toBe(true)
+  await page.getByLabel('上传新头像', { exact: true }).setInputFiles(avatar)
+  await expect(page.getByRole('status')).toContainText('头像已更新')
+  expect(requests.find(request => request.path === '/storage/v1/object/avatars' && request.method === 'DELETE')?.body)
+    .toEqual({ prefixes: [`${session.user.id}/old.png`] })
+})
+
 test('修改昵称通过Auth metadata保存并读回profiles确认', async ({ page }) => {
   const { requests } = await mockSupabase(page, { signedIn: true })
   await page.goto('/account')

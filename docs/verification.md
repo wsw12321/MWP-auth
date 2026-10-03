@@ -2,6 +2,21 @@
 
 本地单元/浏览器测试使用受控的 Supabase 响应验证界面与状态机。数据库策略、SMTP、OAuth Server、跨浏览器真实 token 及线上 Cloudflare 响应必须在真实项目实测。以下分别记录已执行检查和待验收步骤；配置成功不代表完整认证流程已经验收。
 
+## 同源 API 代理发布前检查（2026-10-03）
+
+针对大陆浏览器可打开账号页但无法直连 Supabase 的问题，生产前端默认通过 `/supabase/*` 请求当前新加坡项目。真实项目 URL 保留，用于固定 Worker 上游、兼容原会话键和已有头像；不迁移用户或数据库。
+
+| 检查 | 结果与边界 |
+| --- | --- |
+| TypeScript、ESLint、生产构建和 Wrangler dry run | 全部通过。Worker 入口、ASSETS 绑定、代理路径优先级和固定上游配置均进入发布产物。 |
+| Vitest | 12 个文件、139 项通过；包含 40 项代理测试，以及真实 SDK 恢复原会话/PKCE、同源刷新、旧头像显示和清理的兼容测试。 |
+| Playwright | 桌面/手机 66 项通过。强制同源 API 并阻断原 Supabase 域名，覆盖登录注册、确认邮件、续期、资料、头像和授权界面。均使用模拟账号/接口。 |
+| 实际本地 Workers 运行时 | 11 项只读探测通过：页面 200、未知 API JSON 404、带公开 key 的认证健康/配置 200、无用户 JWT 的 user/profiles 401、discovery 200 且 issuer 不变、登录 OPTIONS 200。另确认空登录 POST 返回参数错误 400，OAuth authorize 返回 302 到 `/oauth/consent`，未由 Worker 跟随跳转。API 响应包含 no-store。 |
+| 代码独立审查 | 未发现确定的发布阻断项；审查覆盖代理范围、请求头、重定向、缓存、会话及头像兼容。 |
+| 发布流程 | 使用现有 Git 集成，提交并推送 `wsw12321/MWP-auth` 的 `main` 后由 Cloudflare 自动发布。本轮不使用本机 Wrangler 发布命令。 |
+
+以上联网探测来自当前开发环境的海外出口，不代表大陆线路实测。没有创建真实账号、发送邮件、上传文件或启用网关 OIDC；完整大陆登录注册、邮件投递及业务站首次授权跳转仍需实际验收。代理覆盖账号站 API，业务站首次 OAuth authorize 跳转须按 [OIDC 接入约定](oidc-integration.md#客户端与发现文档) 另行适配。
+
 ## 新加坡项目重建与检查（2026-10-03）
 
 当前项目为 `uuwucstroazapvrmnprx`（`water5-auth`），地区为新加坡 `ap-southeast-1`。账号站保持 `https://auth.water555.com`，发件人保持 `吾水阁账号中心 <no-reply@mwp-mail.water555.com>`。原用户、资料、授权记录和头像文件未迁移。

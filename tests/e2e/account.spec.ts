@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { mockSupabase } from './mock-supabase'
 
 test('手机和桌面登录页无水平溢出，键盘可完成登录', async ({ page }, testInfo) => {
-  await mockSupabase(page)
+  const { requests } = await mockSupabase(page)
   await page.goto('/login')
   const email = page.getByLabel('邮箱', { exact: true })
   await expect(email).toBeVisible()
@@ -15,7 +15,20 @@ test('手机和桌面登录页无水平溢出，键盘可完成登录', async ({
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/account$/)
   await expect(page.getByRole('heading', { name: '账号设置', exact: true })).toBeVisible()
+  expect(requests.some(request => request.path === '/auth/v1/token')).toBe(true)
+  expect(requests.every(request => request.url.startsWith('http://127.0.0.1:4173/supabase/'))).toBe(true)
+  expect(await page.evaluate(() => Boolean(localStorage.getItem('sb-test-project-auth-token')))).toBe(true)
+  expect(await page.evaluate(() => localStorage.getItem('sb-127-auth-token'))).toBeNull()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('旧会话过期后通过同源接口刷新并恢复账号', async ({ page }) => {
+  const { requests } = await mockSupabase(page, { signedIn: true, expiredStoredSession: true })
+  await page.goto('/account')
+  await expect(page.getByRole('heading', { name: '账号设置', exact: true })).toBeVisible()
+  expect(requests.some(request => request.path === '/auth/v1/token'
+    && new URL(request.url).searchParams.get('grant_type') === 'refresh_token'
+    && request.body?.refresh_token === 'test-refresh-token')).toBe(true)
 })
 
 test('登录保留待处理授权请求，同意后仅跳向 Supabase 返回的地址', async ({ page }) => {

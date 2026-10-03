@@ -17,6 +17,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       VITE_SUPABASE_URL: 'https://test-project.supabase.co',
+      VITE_SUPABASE_PROXY: 'true',
       VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test-only',
       VITE_SITE_URL: 'http://127.0.0.1:4173',
     },

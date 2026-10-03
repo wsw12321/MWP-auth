@@ -8,5 +8,5 @@
     "noUnusedLocals": true, "noUnusedParameters": true,
     "types": ["vite/client", "node", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src", "tests", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "worker", "tests", "vite.config.ts", "playwright.config.ts"]
 }

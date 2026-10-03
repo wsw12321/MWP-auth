@@ -4,6 +4,6 @@ import { afterEach } from 'vitest'
 
 afterEach(() => {
   cleanup()
-  sessionStorage.clear()
-  localStorage.clear()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
+  if (typeof localStorage !== 'undefined') localStorage.clear()
 })

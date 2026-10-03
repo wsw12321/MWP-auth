@@ -1,7 +1,7 @@
 import { File as NodeFile } from 'node:buffer'
 import type { User } from '@supabase/supabase-js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ownedAvatarPath, saveAvatar, saveNickname } from '../../src/lib/profile'
+import { ownedAvatarPath, safeAvatarUrl, saveAvatar, saveNickname } from '../../src/lib/profile'
 import type { Profile } from '../../src/lib/profile'
 import { user } from '../fixtures'
 
@@ -17,8 +17,13 @@ vi.mock('../../src/lib/supabase', () => ({
     storage: { from: sdk.storageFrom },
   }),
 }))
+vi.mock('../../src/lib/config', () => ({
+  supabaseUrl: 'https://project.supabase.co',
+  supabaseApiUrl: 'https://auth.water555.com/supabase',
+}))
 
 const origin = 'https://project.supabase.co/storage/v1/object/public/avatars/'
+const proxyOrigin = 'https://auth.water555.com/supabase/storage/v1/object/public/avatars/'
 const newPath = `${user.id}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png`
 const newUrl = origin + newPath
 const oldPath = `${user.id}/old.png`
@@ -69,6 +74,14 @@ describe('头像写入与失败补偿', () => {
     expect(result.cleanupPending).toBe(false)
     expect(sdk.remove).toHaveBeenCalledExactlyOnceWith([oldPath])
     expect(sdk.single.mock.invocationCallOrder[0]).toBeLessThan(sdk.remove.mock.invocationCallOrder[0])
+  })
+
+  it('通过代理保存新头像后仍能清理直连地址的旧头像', async () => {
+    sdk.getPublicUrl.mockImplementation((path: string) => ({ data: { publicUrl: proxyOrigin + path } }))
+    const result = await saveAvatar(user.id, png())
+    expect(result.profile.avatar_url).toBe(proxyOrigin + newPath)
+    expect(result.cleanupPending).toBe(false)
+    expect(sdk.remove).toHaveBeenCalledExactlyOnceWith([oldPath])
   })
 
   it('Auth 响应丢失但服务端已提交时，恢复旧资料并确认后才清理新图片', async () => {
@@ -165,15 +178,43 @@ describe('资料来源与对象删除边界', () => {
   })
 
   it('只接受本项目、本人目录的简单文件路径', () => {
+    sdk.getPublicUrl.mockImplementation((path: string) => ({ data: { publicUrl: proxyOrigin + path } }))
     expect(ownedAvatarPath(user.id, oldUrl)).toBe(oldPath)
+    expect(ownedAvatarPath(user.id, proxyOrigin + oldPath)).toBe(oldPath)
     for (const value of [
       'https://evil.example/storage/v1/object/public/avatars/' + oldPath,
+      'https://project.supabase.co.evil.example/storage/v1/object/public/avatars/' + oldPath,
+      'https://attacker@project.supabase.co/storage/v1/object/public/avatars/' + oldPath,
+      'https://attacker@auth.water555.com/supabase/storage/v1/object/public/avatars/' + oldPath,
+      'https://auth.water555.com/storage/v1/object/public/avatars/' + oldPath,
       origin + 'someone-else/avatar.png',
+      proxyOrigin + 'someone-else/avatar.png',
       origin + user.id + '-suffix/avatar.png',
       origin + user.id + '/folder/avatar.png',
       origin + user.id + '/%2e%2e/other.png',
       origin + user.id + '/nested%2Favatar.png',
       oldUrl + '?download=true', oldUrl + '#fragment', 'javascript:alert(1)',
+      proxyOrigin + oldPath + '?download=true', proxyOrigin + oldPath + '#fragment',
     ]) expect(ownedAvatarPath(user.id, value), value).toBeNull()
+  })
+
+  it('旧公开头像改走同源代理，保留图片参数且无需改写资料', () => {
+    expect(safeAvatarUrl(oldUrl)).toBe(proxyOrigin + oldPath)
+    expect(safeAvatarUrl(oldUrl + '?width=64#image')).toBe(proxyOrigin + oldPath + '?width=64#image')
+    expect(safeAvatarUrl(proxyOrigin + oldPath)).toBe(proxyOrigin + oldPath)
+  })
+
+  it('不改写其他来源或非公开 avatars 对象', () => {
+    for (const value of [
+      'https://another.supabase.co/storage/v1/object/public/avatars/' + oldPath,
+      'https://project.supabase.co.evil.example/storage/v1/object/public/avatars/' + oldPath,
+      'https://project.supabase.co/storage/v1/object/public/avatars-extra/' + oldPath,
+      'https://project.supabase.co/storage/v1/object/sign/avatars/' + oldPath + '?token=signed',
+      'https://external.example/avatar.png',
+    ]) expect(safeAvatarUrl(value), value).toBe(value)
+    for (const value of [
+      'javascript:alert(1)', 'data:image/png;base64,abc', '/avatar.png',
+      'https://attacker@project.supabase.co/storage/v1/object/public/avatars/' + oldPath,
+    ]) expect(safeAvatarUrl(value), value).toBeUndefined()
   })
 })
