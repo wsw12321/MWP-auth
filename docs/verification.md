@@ -2,7 +2,24 @@
 
 本地单元/浏览器测试使用受控的 Supabase 响应验证界面与状态机。数据库策略、SMTP、OAuth Server、跨浏览器真实 token 及线上 Cloudflare 响应必须在真实项目实测。以下分别记录已执行检查和待验收步骤；配置成功不代表完整认证流程已经验收。
 
-## 远程项目配置与检查（2026-10-03）
+## 新加坡项目重建与检查（2026-10-03）
+
+当前项目为 `uuwucstroazapvrmnprx`（`water5-auth`），地区为新加坡 `ap-southeast-1`。账号站保持 `https://auth.water555.com`，发件人保持 `吾水阁账号中心 <no-reply@mwp-mail.water555.com>`。原用户、资料、授权记录和头像文件未迁移。
+
+| 项目 | 本次结果 |
+| --- | --- |
+| 数据库初始化 | 已重放 accounts 迁移并将历史版本对齐仓库的 `202610020001`；profiles、同步函数、两个 Auth 触发器、8 条 RLS 策略及 avatars bucket 已恢复。 |
+| 数据库权限 | 现有 `permissions.sql` 在事务中执行通过；仅事务内启用 Storage SQL 删除测试，执行后回滚，确认用户、资料和对象记录均为 0。匿名 HTTP 读取 profiles 返回 401。 |
+| Auth 和邮件 | Site URL、回调、邮箱确认、双邮箱修改确认、密码最少 10 位、30 封/小时、SMTP 及四份中文模板已恢复。除不可回读的密码和平台派生字段外，Auth 全量配置与旧快照一致。没有发送测试邮件，实际邮件投递待验收。 |
+| JWT 与 OAuth | 当前签名键为 ES256，discovery issuer 与新项目一致。Codex Gateway 新 Client ID 为 `b883cebe-d570-4e7b-96dc-0423b15f9a89`，网站/回调/类型/认证方式均回读一致；正常回调返回 302，未登记回调返回 400。 |
+| Storage、Data API、Realtime | 用户可配置参数与旧快照一致，无额外变更。 |
+| 生产网关 | 已更新配置文件中的 issuer、host、Client ID 和 secret，并验证权限与凭据一致。按用户要求保持线上 OIDC 关闭；6 个容器 ID 和 Gateway 启动时间不变，无数据库操作。 |
+| 本地校验 | TypeScript、ESLint、80 项单元测试及桌面/移动端 4 项网站目录和应用入口浏览器测试通过；构建与 Wrangler dry run 通过，产物含新项目地址和 Client ID，不含旧项目地址或私密凭据。浏览器依赖仅解包到临时目录。 |
+| 线上发布 | 已发布到原 `water5-auth` Worker 和 `auth.water555.com`，版本 `c11e0c51-2a6e-4797-b84f-6e4f37dd17cb`。9 条页面路由均返回 200，安全响应头生效；线上 8 个 JS/CSS 资源逐字节匹配本地构建，确认新项目与 Client ID 已上线。 |
+
+重建快照与敏感操作记录存放在本地 `.supabase-rebuild/`，已排除 Git；不能提交或公开上传其中的凭据文件。
+
+## 旧项目远程配置与检查（2026-10-03，重建前记录）
 
 目标项目为 `hqsbxndtzyspkvoaxvid`（`water5-auth`），账号站为 `https://auth.water555.com`。
 

@@ -1,5 +1,5 @@
 export const connectedSites = [{
-  clientId: '3e9c79d8-3c51-4fee-a986-7a2d5fed62dc',
+  clientId: 'b883cebe-d570-4e7b-96dc-0423b15f9a89',
   name: 'Codex 网关',
   description: '统一管理模型访问、API Key 与使用记录。',
   url: 'https://codex.water555.com',

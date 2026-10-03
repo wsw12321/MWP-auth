@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { mockSupabase } from './mock-supabase'
 
 const codexClient = {
-  id: '3e9c79d8-3c51-4fee-a986-7a2d5fed62dc', name: 'Codex Gateway',
+  id: 'b883cebe-d570-4e7b-96dc-0423b15f9a89', name: 'Codex Gateway',
   uri: 'https://codex.water555.com', logo_uri: '',
 }
 

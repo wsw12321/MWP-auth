@@ -8,14 +8,18 @@
 | --- | --- |
 | 网站地址 | `https://codex.water555.com` |
 | 客户端名称 | `Codex Gateway` |
-| Client ID | `3e9c79d8-3c51-4fee-a986-7a2d5fed62dc` |
+| Client ID | `b883cebe-d570-4e7b-96dc-0423b15f9a89` |
 | 客户端类型 | `confidential`，手工登记 |
 | Token endpoint 认证方式 | `client_secret_basic` |
 | 精确 Redirect URI | `https://codex.water555.com/auth/oidc/callback` |
-| Issuer | `https://hqsbxndtzyspkvoaxvid.supabase.co/auth/v1` |
+| Issuer | `https://uuwucstroazapvrmnprx.supabase.co/auth/v1` |
 | 登录申请范围 | `openid email`，使用 S256 PKCE |
 
-2026-10-03 已回读确认现有客户端及精确回调地址，并补全客户端网站地址。授权请求可跳转到账号站 `/oauth/consent`；未登记的回调路径被拒绝。完整的用户授权、换码及网关登录仍待联调。
+2026-10-03 已在新加坡项目 `uuwucstroazapvrmnprx` 重建客户端，并回读确认网站地址、精确回调和认证方式。有效授权请求返回 302 到账号站 `/oauth/consent`；未登记的回调路径返回 400。
+
+网关生产配置文件中的 issuer、host、Client ID 和 secret 已更新。按用户要求，线上容器的 OIDC 继续关闭，没有重启或加载 `deploy/oidc.override.yml`。配置文件中的 `OIDC_ENABLED=true` 不代表当前容器已启用统一登录；完整用户授权、换码及网关登录需后续明确启用后验收。
+
+旧 Supabase 用户未迁移。原有网关身份绑定不能自动用于新项目；需要用网关原有本地登录方式进入账号安全，解绑旧身份后再绑定新账号，不能仅按相同邮箱自动关联。
 
 Client ID 是公开接入参数；client secret 仅由网关服务端保管，不写入本仓库或前端构建配置。登记网站后，用户完成同意授权才会在 `/account/apps` 的“已授权应用”中看到该应用。
 

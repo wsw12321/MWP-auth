@@ -3,7 +3,7 @@ import { applicationUrl } from '../../src/lib/sites'
 
 describe('已授权应用的登录入口', () => {
   it('已接入的 Codex 客户端从网关发起登录，不使用授权返回的任意网站地址', () => {
-    expect(applicationUrl({ id: '3e9c79d8-3c51-4fee-a986-7a2d5fed62dc', uri: 'https://other.example' }))
+    expect(applicationUrl({ id: 'b883cebe-d570-4e7b-96dc-0423b15f9a89', uri: 'https://other.example' }))
       .toBe('https://codex.water555.com/?login=water5')
   })
 
