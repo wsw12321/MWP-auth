@@ -17,7 +17,7 @@ pnpm dev
 
 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_SITE_URL` 都会进入浏览器构建产物。不要填写 secret key 或 service-role key。缺少配置时页面会显示配置提示。
 
-`VITE_SUPABASE_URL` 始终填写真实 Supabase 项目地址，并与 `wrangler.jsonc` 的 `SUPABASE_ORIGIN` 一致。生产构建默认走同源代理，Vite 开发默认直连；可用 `VITE_SUPABASE_PROXY=true|false` 显式选择。代理不会改变原项目的本地会话存储键。验证完整生产路由请运行 `pnpm build` 后执行 `pnpm exec wrangler dev`；`vite preview` 仅提供静态页面，不执行 Worker。
+`VITE_SUPABASE_URL` 始终填写真实 Supabase 项目地址，并与 `wrangler.jsonc` 的 `SUPABASE_ORIGIN` 一致。生产构建默认走同源代理，Vite 开发默认直连；可用 `VITE_SUPABASE_PROXY=true|false` 显式选择。代理不会改变原项目的本地会话存储键。验证完整生产路由请运行 `pnpm exec wrangler dev`；`vite preview` 仅提供静态页面，不执行 Worker。
 
 先按 [部署与 Supabase 配置](docs/deployment.md) 执行数据库迁移、设置邮件模板和回调地址；只启动前端不能完成真实认证。更改生产 `VITE_` 构建变量后需要重新构建部署。
 

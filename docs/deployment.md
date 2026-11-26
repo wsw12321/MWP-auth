@@ -92,11 +92,11 @@ Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹
 2. 在 Cloudflare Workers Builds 构建环境设置三个生产 `VITE_` 变量，确认 `VITE_SUPABASE_URL` 与仓库 `SUPABASE_ORIGIN` 指向同一项目。生产默认代理，无需新增构建变量；预览分支只使用开发项目。
 3. 执行 `pnpm check`、`pnpm test`、`pnpm test:e2e`。
 4. 执行 `pnpm deploy:check`，查看 Wrangler dry run 结果及 `dist/`。dry run 只校验构建/发布配置，不会验证 Supabase、DNS、SMTP 或真实授权。
-5. 当前生产仓库为 `wsw12321/MWP-auth`，生产分支为 `main`。检查和审查通过后提交并推送该分支，由已有 Cloudflare Workers Builds Git 集成完成构建与发布。构建/发布命令必须运行 `pnpm build` 和 Wrangler deploy（例如构建 `pnpm build`，部署 `pnpm exec wrangler deploy`；或由 `pnpm run deploy` 合并执行）。调用项目的 deploy 脚本必须包含 `run`，因为 `pnpm deploy` 是 pnpm 自带的工作区部署命令。常规发布不在本机执行 `pnpm run deploy`。推送后确认对应 commit 的构建成功并成为活动部署。
+5. 当前生产仓库为 `wsw12321/MWP-auth`，生产分支为 `main`。检查和审查通过后提交并推送该分支，由已有 Cloudflare Workers Builds Git 集成完成构建与发布。Wrangler 会在上传前执行仓库配置的 `pnpm run build` 生成 `dist/`。Workers Builds 可留空 Build command，生产部署命令用 `pnpm exec wrangler deploy`，非生产分支预览命令用 `pnpm exec wrangler versions upload`。在本地为预览命令附加 `--dry-run` 即可验证预览打包。调用项目的 deploy 脚本必须包含 `run`，因为 `pnpm deploy` 是 pnpm 自带的工作区部署命令。常规发布不在本机执行 `pnpm run deploy`。推送后确认对应 commit 的构建成功并成为活动部署。
 6. 在 Cloudflare 为该 Worker 绑定正式域名，重新检查 `VITE_SITE_URL`、Supabase Site URL、Auth Redirect URLs 三者一致。
 7. 在实际 HTTPS 域名检查深层链接与 API 分流、认证配置/健康接口、响应头和缓存策略。关闭代理软件后检查登录、注册、邮件确认、会话刷新、资料和头像；Network 中账号 API 应走 `/supabase/*`。只读健康检查不能代替实际大陆网络验收。
 
-本地验证 Worker 使用 `pnpm build` 后运行 `pnpm exec wrangler dev`；仅运行 Vite preview 不包含 API。浏览器回归测试强制走同源路径并阻断原 Supabase 域名，Worker 单测另行校验转发边界。需要回退时恢复之前的 Git 版本并经同一构建流程发布；将 `VITE_SUPABASE_PROXY=false` 后重新构建也可恢复直连，但会重新受到大陆网络直连条件限制。
+本地验证 Worker 使用 `pnpm exec wrangler dev`；仅运行 Vite preview 不包含 API。浏览器回归测试强制走同源路径并阻断原 Supabase 域名，Worker 单测另行校验转发边界。需要回退时恢复之前的 Git 版本并经同一构建流程发布；将 `VITE_SUPABASE_PROXY=false` 后重新构建也可恢复直连，但会重新受到大陆网络直连条件限制。
 
 官方依据：[Workers SPA 回退](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/)、[静态资源响应头](https://developers.cloudflare.com/workers/static-assets/headers/)。
 
@@ -120,4 +120,4 @@ Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹
 
 以后在同一变量中增删、排序或编辑网站，点击 **Deploy** 发布变量后刷新 `/sites` 即可，无需重新构建前端。Wrangler 通过 `keep_vars` 保留控制台变量。可访问同源 `/api/sites` 核对生效的清单。删除变量或设为 `[]` 会显示空目录。配置格式有误时接口返回 503，修正变量并部署后可在页面点击“重新加载”。
 
-本地运行 `pnpm dev` 时可在 `.env.local` 中设置 `CONNECTED_SITES='[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。该变量由开发服务器读取。测试完整 Worker 路由可在构建后运行 `pnpm exec wrangler dev --var 'CONNECTED_SITES:[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。
+本地运行 `pnpm dev` 时可在 `.env.local` 中设置 `CONNECTED_SITES='[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。该变量由开发服务器读取。测试完整 Worker 路由可运行 `pnpm exec wrangler dev --var 'CONNECTED_SITES:[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。
