@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { codexSite } from './tests/fixtures'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -16,6 +17,7 @@ export default defineConfig({
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     env: {
+      CONNECTED_SITES: JSON.stringify([codexSite]),
       VITE_SUPABASE_URL: 'https://test-project.supabase.co',
       VITE_SUPABASE_PROXY: 'true',
       VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test-only',

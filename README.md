@@ -19,7 +19,7 @@ pnpm dev
 
 `VITE_SUPABASE_URL` 始终填写真实 Supabase 项目地址，并与 `wrangler.jsonc` 的 `SUPABASE_ORIGIN` 一致。生产构建默认走同源代理，Vite 开发默认直连；可用 `VITE_SUPABASE_PROXY=true|false` 显式选择。代理不会改变原项目的本地会话存储键。验证完整生产路由请运行 `pnpm build` 后执行 `pnpm exec wrangler dev`；`vite preview` 仅提供静态页面，不执行 Worker。
 
-先按 [部署与 Supabase 配置](docs/deployment.md) 执行数据库迁移、设置邮件模板和回调地址；只启动前端不能完成真实认证。生产配置更改后需要重新构建部署。
+先按 [部署与 Supabase 配置](docs/deployment.md) 执行数据库迁移、设置邮件模板和回调地址；只启动前端不能完成真实认证。更改生产 `VITE_` 构建变量后需要重新构建部署。
 
 | 命令 | 用途 |
 | --- | --- |
@@ -50,6 +50,8 @@ pnpm dev
 | `/account/apps` | 查询、撤销已授权应用，点击应用发起统一登录 |
 | `/sites` | 公开浏览已接入网站并前往网站 |
 | `/oauth/consent` | 展示并处理 Supabase OAuth 授权请求 |
+
+接入网站清单在 Cloudflare 控制台的 **Workers & Pages → water5-auth → Settings → Variables and Secrets** 中维护。编辑 `CONNECTED_SITES`，保存并部署变量后刷新 `/sites` 即可看到变更。首次迁移可复制现有 Codex 网关条目。[配置步骤与 JSON 示例](docs/deployment.md#接入网站目录)
 
 Supabase Auth 是账号及展示资料的写入来源，数据库触发器把选定 metadata 字段同步至只读 `profiles`；头像保存在公开的 `avatars` bucket。业务角色、余额及各网站的会话仍属于业务站。
 

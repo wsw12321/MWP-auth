@@ -82,7 +82,7 @@ VITE_SITE_URL=http://localhost:5173
 
 ## 5. Cloudflare Workers 与 Git 自动部署
 
-仓库 `wrangler.jsonc` 发布 `worker/index.ts` 和 `dist/`，通过 `assets.run_worker_first` 将 `/supabase`、`/supabase/*` 优先交给 Worker。其他页面保持 `single-page-application` 回退，保证 `/auth/callback`、`/oauth/consent` 等路由直接打开与刷新都返回 SPA。`public/_headers` 只作用于静态响应，API 响应的安全头与缓存策略由 Worker 显式设置。
+仓库 `wrangler.jsonc` 发布 `worker/index.ts` 和 `dist/`，通过 `assets.run_worker_first` 将 `/api/sites`、`/supabase`、`/supabase/*` 优先交给 Worker。其他页面保持 `single-page-application` 回退，保证 `/auth/callback`、`/oauth/consent` 等路由直接打开与刷新都返回 SPA。`public/_headers` 只作用于静态响应，API 响应的安全头与缓存策略由 Worker 显式设置。
 
 Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹配的 API 路径返回 JSON 404。保留 API 方法、查询参数、请求体和认证头；不转发本站 Cookie 或客户端提供的转发/IP 头，不记录请求体、认证凭据或完整 URL。关闭自动 invocation logs，避免 API 查询参数进入调用日志。所有代理响应禁用浏览器与 CDN 缓存。上游重定向不由 Worker 跟随，仅将同项目服务路径改为同源代理地址，业务站回调原样交给浏览器。Supabase 仍执行认证、RLS 和速率限制；没有通过高权限凭据注入终端 IP，部署后需关注上游按代理出口 IP 计数的限流情况。
 
@@ -99,3 +99,25 @@ Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹
 本地验证 Worker 使用 `pnpm build` 后运行 `pnpm exec wrangler dev`；仅运行 Vite preview 不包含 API。浏览器回归测试强制走同源路径并阻断原 Supabase 域名，Worker 单测另行校验转发边界。需要回退时恢复之前的 Git 版本并经同一构建流程发布；将 `VITE_SUPABASE_PROXY=false` 后重新构建也可恢复直连，但会重新受到大陆网络直连条件限制。
 
 官方依据：[Workers SPA 回退](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/)、[静态资源响应头](https://developers.cloudflare.com/workers/static-assets/headers/)。
+
+### 接入网站目录
+
+在 Cloudflare 控制台打开 **Workers & Pages → water5-auth → Settings → Variables and Secrets**，新增运行时变量 `CONNECTED_SITES`，类型选 **JSON**。首次切换前，先填入以下清单并保存部署，即可保留现有 Codex 网关入口。
+
+```json
+[
+  {
+    "clientId": "b883cebe-d570-4e7b-96dc-0423b15f9a89",
+    "name": "Codex 网关",
+    "description": "统一管理模型访问、API Key 与使用记录。",
+    "url": "https://codex.water555.com",
+    "loginUrl": "https://codex.water555.com/?login=water5"
+  }
+]
+```
+
+每个网站占数组的一项，按数组顺序展示。`clientId` 填 Supabase 登记的 OAuth 客户端 ID，每项唯一。`name` 和首页 `url` 必填，`description` 和登录入口 `loginUrl` 可省略。省略登录入口时使用首页。网址须为无内嵌用户名或密码的 HTTPS 地址。目录对外公开，只填写公开接入信息。
+
+以后在同一变量中增删、排序或编辑网站，点击 **Deploy** 发布变量后刷新 `/sites` 即可，无需重新构建前端。Wrangler 通过 `keep_vars` 保留控制台变量。可访问同源 `/api/sites` 核对生效的清单。删除变量或设为 `[]` 会显示空目录。配置格式有误时接口返回 503，修正变量并部署后可在页面点击“重新加载”。
+
+本地运行 `pnpm dev` 时可在 `.env.local` 中设置 `CONNECTED_SITES='[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。该变量由开发服务器读取。测试完整 Worker 路由可在构建后运行 `pnpm exec wrangler dev --var 'CONNECTED_SITES:[{"clientId":"local","name":"示例","url":"https://example.com"}]'`。
