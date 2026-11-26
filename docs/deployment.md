@@ -92,7 +92,7 @@ Worker 只代理固定项目的 `/auth/v1`、`/rest/v1`、`/storage/v1`，未匹
 2. 在 Cloudflare Workers Builds 构建环境设置三个生产 `VITE_` 变量，确认 `VITE_SUPABASE_URL` 与仓库 `SUPABASE_ORIGIN` 指向同一项目。生产默认代理，无需新增构建变量；预览分支只使用开发项目。
 3. 执行 `pnpm check`、`pnpm test`、`pnpm test:e2e`。
 4. 执行 `pnpm deploy:check`，查看 Wrangler dry run 结果及 `dist/`。dry run 只校验构建/发布配置，不会验证 Supabase、DNS、SMTP 或真实授权。
-5. 当前生产仓库为 `wsw12321/MWP-auth`，生产分支为 `main`。检查和审查通过后提交并推送该分支，由已有 Cloudflare Workers Builds Git 集成完成构建与发布。Wrangler 会在上传前执行仓库配置的 `pnpm run build` 生成 `dist/`。Workers Builds 可留空 Build command，生产部署命令用 `pnpm exec wrangler deploy`，非生产分支预览命令用 `pnpm exec wrangler versions upload`。在本地为预览命令附加 `--dry-run` 即可验证预览打包。调用项目的 deploy 脚本必须包含 `run`，因为 `pnpm deploy` 是 pnpm 自带的工作区部署命令。常规发布不在本机执行 `pnpm run deploy`。推送后确认对应 commit 的构建成功并成为活动部署。
+5. 当前生产仓库为 `wsw12321/MWP-auth`，生产分支为 `main`。检查和审查通过后提交并推送该分支，由已有 Cloudflare Workers Builds Git 集成完成构建与发布。Wrangler 会在上传前执行仓库配置的 `pnpm run build` 生成 `dist/`。Workers Builds 可留空 Build command，生产部署命令用 `pnpm exec wrangler deploy`，非生产分支使用 Cloudflare 已配置的 `npx wrangler preview`。仓库中的 `"previews": {}` 启用分支预览，运行时变量由 Cloudflare 的 Preview base configuration 提供。预览登录时，将预览的 `SUPABASE_ORIGIN` 与构建变量 `VITE_SUPABASE_URL` 指向同一个开发项目；预览目录可单独配置 `CONNECTED_SITES`。在 PR 的 Workers Builds 检查中确认预览部署结果。调用项目的 deploy 脚本必须包含 `run`，因为 `pnpm deploy` 是 pnpm 自带的工作区部署命令。常规发布不在本机执行 `pnpm run deploy`。推送后确认对应 commit 的构建成功并成为活动部署。
 6. 在 Cloudflare 为该 Worker 绑定正式域名，重新检查 `VITE_SITE_URL`、Supabase Site URL、Auth Redirect URLs 三者一致。
 7. 在实际 HTTPS 域名检查深层链接与 API 分流、认证配置/健康接口、响应头和缓存策略。关闭代理软件后检查登录、注册、邮件确认、会话刷新、资料和头像；Network 中账号 API 应走 `/supabase/*`。只读健康检查不能代替实际大陆网络验收。
 
