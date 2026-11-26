@@ -4,15 +4,18 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-02",
   "workers_dev": true,
+  "previews": {},
   "routes": [
     { "pattern": "auth.water555.com", "custom_domain": true }
   ],
+  "build": { "command": "pnpm run build" },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/supabase", "/supabase/*"]
+    "run_worker_first": ["/api/sites", "/supabase", "/supabase/*"]
   },
+  "keep_vars": true,
   "vars": {
     "SUPABASE_ORIGIN": "https://uuwucstroazapvrmnprx.supabase.co"
   },

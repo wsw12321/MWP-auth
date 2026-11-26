@@ -26,3 +26,11 @@ export function makeSession(
     user: account,
   }
 }
+
+export const codexSite = {
+  clientId: 'b883cebe-d570-4e7b-96dc-0423b15f9a89',
+  name: 'Codex 网关',
+  description: '统一管理模型访问、API Key 与使用记录。',
+  url: 'https://codex.water555.com/',
+  loginUrl: 'https://codex.water555.com/?login=water5',
+}

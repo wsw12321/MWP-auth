@@ -1,5 +1,9 @@
+import { sitesPath } from '../src/lib/sites'
+import { sitesResponse } from './sites'
+
 export interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> }
+  CONNECTED_SITES?: unknown
   SUPABASE_ORIGIN: string
 }
 
@@ -93,6 +97,7 @@ function rewriteLocation(location: string, upstream: URL, publicOrigin: string):
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incoming = new URL(request.url)
+    if (incoming.pathname === sitesPath) return sitesResponse(request.method, env.CONNECTED_SITES)
     if (incoming.pathname !== proxyPrefix && !incoming.pathname.startsWith(`${proxyPrefix}/`)) {
       return env.ASSETS.fetch(request)
     }

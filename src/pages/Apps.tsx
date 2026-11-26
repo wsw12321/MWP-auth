@@ -8,9 +8,11 @@ import { errorMessage } from '../lib/errors'
 import { ensureCurrentUser, scopeLabels, sessionExpired } from '../lib/oauth'
 import { getSupabase } from '../lib/supabase'
 import { applicationUrl } from '../lib/sites'
+import { useConnectedSites } from '../lib/useConnectedSites'
 
 export default function Apps() {
   const { user } = useAuth()
+  const { sites } = useConnectedSites()
   const [grants, setGrants] = useState<OAuthGrant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +60,7 @@ export default function Apps() {
     {loading ? <Loading>正在读取已授权应用…</Loading> : error ? <button className="button secondary" onClick={() => setRetry(value => value + 1)}>重新加载</button>
       : grants.length === 0 ? <section className="card empty-state"><h2>暂无已授权应用</h2><p>当你使用吾水阁账号连接应用后，会在这里看到它。</p><Link to="/sites">浏览接入网站 <span aria-hidden="true">↗</span></Link></section>
         : grants.map(grant => {
-          const destination = applicationUrl(grant.client)
+          const destination = sites ? applicationUrl(grant.client, sites) : null
           const heading = <><span className="app-symbol" aria-hidden="true">{(grant.client.name || '应').slice(0, 1)}</span><div><h2>{grant.client.name || '未命名应用'}</h2><p className="muted">授权于 {new Date(grant.granted_at).toLocaleDateString('zh-CN')}</p></div></>
           return <section className="card app-grant stack" key={grant.client.id}>
             {destination ? <a className="app-entry" href={destination}>{heading}<span className="entry-arrow" aria-hidden="true">↗</span></a> : <div className="app-entry">{heading}</div>}

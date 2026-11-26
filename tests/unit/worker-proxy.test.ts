@@ -187,3 +187,47 @@ describe('same-origin Supabase proxy', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 })
+
+describe('公开网站目录', () => {
+  const site = { clientId: 'reader', name: '读书', url: 'https://reader.example/' }
+  const directory = (binding?: unknown, method = 'GET') =>
+    call('/api/sites', { method }, { ...env, CONNECTED_SITES: binding })
+
+  it('按配置顺序返回公开字段，支持控制台的 JSON 和文本变量', async () => {
+    const sites = [
+      { ...site, loginUrl: 'https://reader.example/sign-in', description: '在线读书', extra: 'private' },
+      { ...site, clientId: 'notes', name: '笔记', url: 'https://notes.example/' },
+    ]
+    for (const binding of [sites, JSON.stringify(sites)]) {
+      const result = await directory(binding)
+      expect(result.status).toBe(200)
+      expect(result.headers.get('Cache-Control')).toBe('no-store')
+      expect(await result.json()).toEqual([
+        { ...site, loginUrl: 'https://reader.example/sign-in', description: '在线读书' },
+        { clientId: 'notes', name: '笔记', url: 'https://notes.example/', loginUrl: 'https://notes.example/', description: '' },
+      ])
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('未配置和空数组均返回空目录', async () => {
+    for (const config of [undefined, []]) expect(await (await directory(config)).json()).toEqual([])
+  })
+
+  it.each([
+    '{', {}, null, [null], [site, site], [{ ...site, clientId: ' ' }], [{ ...site, name: '' }],
+    [{ ...site, url: 'http://reader.example' }], [{ ...site, loginUrl: 'javascript:void(0)' }],
+    [{ ...site, loginUrl: 'https://user:password@reader.example' }],
+  ].map(binding => ({ binding })))('拒绝无效配置且不公开配置原文', async ({ binding }) => {
+    const result = await directory(binding)
+    expect(result.status).toBe(503)
+    expect(await result.json()).toEqual({ code: 'sites_misconfigured' })
+  })
+
+  it('HEAD 仅返回响应头，写入请求返回 405', async () => {
+    const head = await directory([site], 'HEAD')
+    expect(head.status).toBe(200)
+    expect(await head.text()).toBe('')
+    expect((await directory([site], 'POST')).status).toBe(405)
+  })
+})
